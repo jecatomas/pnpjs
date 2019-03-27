@@ -1,4 +1,5 @@
 import { extend, objectDefinedNotNull } from "./util";
+import * as HttpsProxyAgent from "https-proxy-agent";
 
 declare var global: { fetch(url: string, options: any): Promise<Response> };
 
@@ -7,6 +8,7 @@ export interface ConfigOptions {
     mode?: "navigate" | "same-origin" | "no-cors" | "cors";
     credentials?: "omit" | "same-origin" | "include";
     cache?: "default" | "no-store" | "reload" | "no-cache" | "force-cache" | "only-if-cached";
+    agent?: HttpsProxyAgent;
 }
 
 export interface FetchOptions extends ConfigOptions {

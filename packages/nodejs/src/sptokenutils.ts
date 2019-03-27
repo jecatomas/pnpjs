@@ -4,6 +4,7 @@ const nodeFetch = require("node-fetch").default;
 import * as jwt from "jsonwebtoken";
 import { TypedHash } from "@pnp/common";
 import { AuthToken, SharePointServicePrincipal, ITokenCacheManager } from "./types";
+import * as HttpsProxyAgent from "https-proxy-agent";
 
 class MapCacheManager implements ITokenCacheManager {
 
@@ -39,16 +40,16 @@ export async function validateProviderHostedRequestToken(requestToken: string, c
 /**
  * Gets an add-in only authentication token based on the supplied site url, client id and secret
  */
-export async function getAddInOnlyAccessToken(siteUrl: string, clientId: string, clientSecret: string, realm: string, stsUri: string): Promise<AuthToken> {
-    return getTokenInternal({ siteUrl, clientId, clientSecret, refreshToken: null, realm, stsUri, cacheKey: `addinonly:${clientId}` });
+export async function getAddInOnlyAccessToken(siteUrl: string, clientId: string, clientSecret: string, realm: string, stsUri: string, proxyUrl?: string): Promise<AuthToken> {
+    return getTokenInternal({ siteUrl, clientId, clientSecret, refreshToken: null, realm, stsUri, cacheKey: `addinonly:${clientId}`, proxyUrl });
 }
 
 /**
  * Gets a user authentication token based on the supplied site url, client id, client secret, and refresh token
  */
 // tslint:disable-next-line: max-line-length
-export function getUserAccessToken(siteUrl: string, clientId: string, clientSecret: string, refreshToken: string, realm: string, stsUri: string, cacheKey: string): Promise<AuthToken> {
-    return getTokenInternal({ siteUrl, clientId, clientSecret, refreshToken, realm, stsUri, cacheKey: `user:${cacheKey}` });
+export function getUserAccessToken(siteUrl: string, clientId: string, clientSecret: string, refreshToken: string, realm: string, stsUri: string, cacheKey: string, proxyUrl?: string): Promise<AuthToken> {
+    return getTokenInternal({ siteUrl, clientId, clientSecret, refreshToken, realm, stsUri, cacheKey: `user:${cacheKey}`, proxyUrl });
 }
 
 interface GetTokenInternalParams {
@@ -59,6 +60,7 @@ interface GetTokenInternalParams {
     realm: string;
     stsUri: string;
     cacheKey: string;
+    proxyUrl?: string;
 }
 
 async function getTokenInternal(params: GetTokenInternalParams): Promise<AuthToken> {
@@ -83,6 +85,7 @@ async function getTokenInternal(params: GetTokenInternalParams): Promise<AuthTok
     body.push(`resource=${resource}`);
 
     const r = await nodeFetch(params.stsUri, {
+        agent: params.proxyUrl && new HttpsProxyAgent(params.proxyUrl),
         body: body.join("&"),
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",

@@ -3,12 +3,14 @@ import { HttpClientImpl, combine, isUrlAbsolute } from "@pnp/common";
 import { NodeFetchClient } from "./nodefetchclient";
 import { getAddInOnlyAccessToken } from "../sptokenutils";
 import { SPOAuthEnv, AuthToken } from "../types";
+import * as HttpsProxyAgent from "https-proxy-agent";
 
 /**
  * Fetch client for use within nodejs, requires you register a client id and secret with app only permissions
  */
 export class SPFetchClient  implements HttpClientImpl  {
 
+    protected agent: HttpsProxyAgent;
     protected token: AuthToken | null = null;
 
     constructor(
@@ -17,18 +19,20 @@ export class SPFetchClient  implements HttpClientImpl  {
         protected _clientSecret: string,
         public authEnv: SPOAuthEnv = SPOAuthEnv.SPO,
         protected _realm = "",
-        protected _fetchClient: HttpClientImpl = new NodeFetchClient()) {
+        protected _fetchClient: HttpClientImpl = new NodeFetchClient(),
+        protected proxyUrl?: string) {
 
         global._spPageContextInfo = {
             webAbsoluteUrl: siteUrl,
         };
+        this.agent = this.proxyUrl && new HttpsProxyAgent(this.proxyUrl);
     }
 
     public async fetch(url: string, options: any = {}): Promise<Response> {
 
         const realm = await this.getRealm();
         const authUrl = await this.getAuthUrl(realm);
-        const token = await getAddInOnlyAccessToken(this.siteUrl, this._clientId, this._clientSecret, realm, authUrl);
+        const token = await getAddInOnlyAccessToken(this.siteUrl, this._clientId, this._clientSecret, realm, authUrl, this.proxyUrl);
 
         options.headers.set("Authorization", `Bearer ${token.access_token}`);
 
@@ -73,7 +77,10 @@ export class SPFetchClient  implements HttpClientImpl  {
 
         const url = `https://${this.getAuthHostUrl(this.authEnv)}/metadata/json/1?realm=${realm}`;
 
-        const r = await this._fetchClient.fetch(url, { method: "GET"});
+        const r = await this._fetchClient.fetch(url, {
+            agent: this.agent,
+            method: "GET",
+        });
         const json: { endpoints: { protocol: string, location: string }[] } = await r.json();
 
         const eps = json.endpoints.filter(ep => ep.protocol === "OAuth2");
